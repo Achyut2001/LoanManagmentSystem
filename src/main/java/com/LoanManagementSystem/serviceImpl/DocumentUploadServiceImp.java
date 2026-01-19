@@ -3,13 +3,13 @@ package com.LoanManagementSystem.serviceImpl;
 import com.LoanManagementSystem.entity.DocumentEntity;
 import com.LoanManagementSystem.entity.DocumentStatus;
 import com.LoanManagementSystem.entity.DocumentType;
-import com.LoanManagementSystem.entity.dto.DocType;
 import com.LoanManagementSystem.entity.dto.DocumentResponseDTO;
-import com.LoanManagementSystem.entity.dto.DocumentResponseEvent;
-//import com.LoanManagementSystem.avro.DocumentResponseEvent;
+import com.LoanManagementSystem.entity.dto.kafkaEvent.DocumentUploadedEvent;
 import com.LoanManagementSystem.fileValidate.DocumentValidator;
 import com.LoanManagementSystem.globalExceptionHandller.customeException.DocumentNotFoundException;
 import com.LoanManagementSystem.repositery.DocumentUploadRepositery;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +19,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import com.LoanManagementSystem.util.S3Util;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -30,7 +31,8 @@ public class DocumentUploadServiceImp {
     private final DocumentUploadRepositery repo;
     private final S3Util s3Util;
     private final ModelMapper mapper;
-    private final KafkaTemplate<String, DocumentResponseEvent> kafkaTemplate;
+    private final ObjectMapper objectMapper;
+    private final KafkaTemplate<String, String> kafkaTemplate; //json is passing as a string
 
     @Value("${spring.kafka.topic.document-uploaded}")
     private String documentUploadedTopic;
@@ -69,26 +71,27 @@ public class DocumentUploadServiceImp {
 
         repo.save(entity);
 
-        DocumentResponseEvent event = DocumentResponseEvent.newBuilder()
-                .setDocumentId(entity.getId().toString())
-                .setCustomerId(entity.getCustomerId())
-                .setLoanId(entity.getLoanId())
-                .setDocType(DocType.valueOf(entity.getDocType().name()))
-                .setFilename(entity.getFilename())
-                .setContentType(entity.getContentType())
-                .setFileSize(entity.getFileSize())
-                .setS3Key(entity.getS3Key())
-                .setStatus(com.LoanManagementSystem.entity.dto.DocumentStatus.valueOf(entity.getStatus().name()))
-                .setUploadedAt(entity.getUploadedAt().toString())
-                .build();
+        try {
+            var event = DocumentUploadedEvent.builder()
+                    .documentId(entity.getId())
+                    .customerId(entity.getCustomerId())
+                    .loanId(entity.getLoanId())
+                    .docType(entity.getDocType())
+                    .filename(entity.getFilename())
+                    .s3Key(entity.getS3Key())
+                    .fileSize(entity.getFileSize())
+                    .contentType(entity.getContentType())
+                    .status(entity.getStatus())
+                    .uploadedAt(entity.getUploadedAt())
+                    .build();
 
-        kafkaTemplate.send(documentUploadedTopic, entity.getId().toString(), event);
-
-        log.info("Document upload event published to Kafka: {}", event);
-
-
+            String eventJson = objectMapper.writeValueAsString(event);
+            kafkaTemplate.send(documentUploadedTopic, entity.getId().toString(), eventJson);
+            log.info("Kafka event published: {}", eventJson);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
         return mapper.map(entity, DocumentResponseDTO.class);
-
     }
 
     private String getExtension(String filename) {
