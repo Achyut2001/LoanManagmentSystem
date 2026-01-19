@@ -1,0 +1,45 @@
+server:
+  port: 8085
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/documentVerificationDb
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    topics:
+      document-uploaded: documentUploadTopic
+
+    consumer:
+      group-id: document-verification-group
+      auto-offset-reset: earliest
+      enable-auto-commit: true
+      session-timeout-ms: 15000
+      heartbeat-interval-ms: 5000
+
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+    properties:
+     schema.registry.url: http://localhost:8081
+     specific.avro.reader: true
+
+    listener:
+      missing-topics-fatal: false
+
+aadhaar:
+  api:
+    key: test-api-key
+    url: https://dummy-aadhaar-service.com
