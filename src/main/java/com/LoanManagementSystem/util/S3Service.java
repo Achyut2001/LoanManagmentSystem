@@ -12,11 +12,12 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+
 import java.io.IOException;
 
 @Service
 @RequiredArgsConstructor
-@ConfigurationProperties(prefix ="aws.s3.bucket")
+@ConfigurationProperties(prefix = "aws.s3.bucket")
 public class S3Service {
 
     private final S3Client s3Client;
@@ -56,7 +57,6 @@ public class S3Service {
             throw new S3DownloadException("Failed to download file from S3", e);
         }
     }
-
 
 
 }

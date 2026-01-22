@@ -1,6 +1,5 @@
 package com.LoanManagementSystem.entity;
 
-
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
